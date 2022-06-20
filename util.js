@@ -349,7 +349,7 @@ function findEnclosingBox(points) {
             maxY = points[i][1];
         }
     }
-    return [minX, maxX, minY, maxY];
+    return [minX, minY, maxX, maxY];
 }
 
 function findTriangleSolution(p1, p2, p3) {
@@ -646,7 +646,7 @@ function delaunayTriangulation(points) {
 //   add super-triangle to triangulation // must be large enough to completely contain all the points in points
 
     // right isosceles triangle around enclosing box because easy
-    var [minX, maxX, minY, maxY] = findEnclosingBox(points);
+    var [minX, minY, maxX, maxY] = findEnclosingBox(points);
 
     // extra space
     minX--;
@@ -917,15 +917,33 @@ function drawCircle(ctx, pos, radius, fillColor, edgeColor=undefined, arcStart=0
         ctx.fill();
     }
     if(edgeColor !== undefined) {
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = edgeColor;
         ctx.stroke();
     }
     ctx.closePath();
 }
 
-function fillCanvas(ctx, canvas, fillColor) {
+function drawRectangle(ctx, p1, p2, fillColor, edgeColor=undefined) {
     ctx.beginPath();
-    ctx.fillStyle = fillColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.rect(...findEnclosingBox([p1, p2]));
+    if(fillColor !== undefined) {
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+    }
+    if(edgeColor !== undefined) {
+        ctx.strokeStyle = edgeColor;
+        ctx.stroke();
+    }
     ctx.closePath();
+}
+
+//function fillCanvas(ctx, canvas, fillColor) {
+//    ctx.beginPath();
+//    ctx.fillStyle = fillColor;
+//    ctx.fillRect(0, 0, canvas.width, canvas.height);
+//    ctx.closePath();
+//}
+
+function fillCanvas(ctx, canvas, fillColor) {
+    drawRectangle(ctx, [0, 0], [canvas.width, canvas.height], fillColor);
 }
