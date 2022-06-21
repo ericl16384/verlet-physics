@@ -1,3 +1,6 @@
+"use strict"; // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode/Transitioning_to_strict_mode
+
+
 //const keysPressed = {};
 //function keyDownHandler(e) {
 //    keysPressed[e.key] = true;
