@@ -190,6 +190,11 @@ class Vector {
     constructor(x, y) {
         this.x = x;
         this.y = y;
+        
+        if(isNaN(x) || isNaN(y)) {
+            //console.warn(this.str());
+            throw `vector components must be real numbers, not ${this.str()}`;
+        }
     }
 
     // Removed because confusing; nicer to assume the objects are immutable
@@ -262,10 +267,11 @@ class Vector {
     }
     get norm() {
         var mag = this.mag;
-        if(mag) {
-            return this.div(this.mag);
+        if(!isNaN(mag)) {
+            return this.div(mag);
         } else {
             return new Vector(0, 0);
+            throw "cannot normalize zero vector";
         }
     }
     
