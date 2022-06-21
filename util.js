@@ -13,8 +13,8 @@ function intDiv(a, b) {
     return Math.floor(a / b);
 }
 
-// https://stackoverflow.com/questions/11832914/how-to-round-to-at-most-2-decimal-places-if-necessary
 function round(x, precision) {
+    // https://stackoverflow.com/questions/11832914/how-to-round-to-at-most-2-decimal-places-if-necessary
     var scale = 10**precision;
     return Math.round((x + Number.EPSILON) * scale) / scale;
 }
@@ -184,7 +184,7 @@ function rotatePoint(x, y, theta) {
 }
 
 
-// vector math
+// vector math (immutable)
 
 class Vector {
     constructor(x, y) {
@@ -197,7 +197,6 @@ class Vector {
         }
     }
 
-    // Removed because confusing; nicer to assume the objects are immutable
     //set(v) {
     //    if(v instanceof Vector) {
     //        this.x = v.x;
@@ -213,9 +212,10 @@ class Vector {
     arr() {
         return [this.x, this.y];
     }
-    copy() {
-        return new Vector(this.x, this.y);
-    }
+
+    //copy() {
+    //    return new Vector(this.x, this.y);
+    //}
 
     add(o) {
         if(o instanceof Vector) {
@@ -258,7 +258,6 @@ class Vector {
             );
         }
     }
-
     get neg() {
         return new Vector(-this.x, -this.y);
     }
@@ -283,10 +282,23 @@ class Vector {
     
     //negSet(o) {this.set(this.neg(o));}
     //normSet(o) {this.set(this.norm(o));}
+
+    dot(v) {
+        return this.x*v.x + this.y*v.y;
+    }
+    cross(v) {
+        throw "not implemented";
+    }
+
+    rotate(angle) {
+        var c = Math.cos(angle);
+        var s = Math.sin(angle);
+        return new Vector(this.x*c - this.y*s, this.x*s + this.y*c);
+    }
 }
 
-function angleToVector(theta) {
-    return new Vector(Math.cos(theta), Math.sin(theta));
+function angleToVector(theta, magnitude=1) {
+    return new Vector(Math.cos(theta), Math.sin(theta)).mul(magnitude);
 }
 
 
@@ -399,7 +411,7 @@ function getAdjacentTiles(x, y) {
     ];
 }
 
-function createTileSpace(x, y, filler=null) {
+function createTileSpace(x, y, filler=undefined) {
     const tiles = [];
     for(let i=0; i<x; i++) {
         tiles.push([]);
@@ -480,14 +492,14 @@ function createMaze(x, y, seed) {
 // pathfinding
 
 class PathfindingNode {
-    constructor(x, y, parent=null) {
+    constructor(x, y, parent=undefined) {
         this.x = x;
         this.y = y;
         this.parent = parent;
 
-        this.f = null;
-        this.g = null;
-        this.h = null;
+        this.f = undefined;
+        this.g = undefined;
+        this.h = undefined;
     }
 
     recurse() {
@@ -906,6 +918,13 @@ function createDungeon(width, height, roomCmds, tileCosts=undefined) {
 
 // canvas
 
+var WHITE = "#ffffff";
+var BLACK = "#000000";
+
+var RED = "#ff0000";
+var GREEN = "#00ff00";
+var BLUE = "#0000ff";
+
 function drawLine(ctx, p1, p2, color) {
     ctx.beginPath();
     ctx.moveTo(...p1);
@@ -943,12 +962,25 @@ function drawRectangle(ctx, p1, p2, fillColor, edgeColor=undefined) {
     ctx.closePath();
 }
 
-//function fillCanvas(ctx, canvas, fillColor) {
-//    ctx.beginPath();
-//    ctx.fillStyle = fillColor;
-//    ctx.fillRect(0, 0, canvas.width, canvas.height);
-//    ctx.closePath();
-//}
+function drawPolygon(ctx, points, fillColor, edgeColor=undefined) {
+    ctx.beginPath();
+    ctx.moveTo(...points[0]);
+    for(let i=0; i<points.length; i++) {
+        ctx.lineTo(...points[i]);
+    }
+    ctx.lineTo(...points[0]);
+    ctx.closePath();
+    ctx.fill();
+    if(fillColor !== undefined) {
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+    }
+    if(edgeColor !== undefined) {
+        ctx.strokeStyle = edgeColor;
+        ctx.stroke();
+    }
+    ctx.closePath();
+}
 
 function fillCanvas(ctx, canvas, fillColor) {
     drawRectangle(ctx, [0, 0], [canvas.width, canvas.height], fillColor);
