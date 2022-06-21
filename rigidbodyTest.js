@@ -253,8 +253,6 @@ class VerletRigidbody {
     }
 
     applyInstantForce(v, forceCenter=undefined, local=false) {
-        console.log(this.position.arr(), local);
-
         if(this.kinematic) {
             return;
         }
@@ -276,7 +274,6 @@ class VerletRigidbody {
             var globalV = v;
             var localForceCenter = this.toLocalPosition(forceCenter);
         }
-        console.log(localForceCenter);
 
         var torque = localForceCenter.rotate(Math.PI/2).dot(localV);
 

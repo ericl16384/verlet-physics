@@ -10,6 +10,10 @@ class VerletObject {
         this.kinematic = false;
     }
 
+    draw(ctx, color) {
+        drawCircle(ctx, this.position.arr(), this.radius, color);
+    }
+
     updatePosition(dt) {
         var velocity = this.position.sub(this.oldPosition);
         this.oldPosition = this.position;
@@ -188,91 +192,199 @@ class VerletSimulation {
 }
 
 
-var sim = new VerletSimulation();
+class VerletRigidbody {
+    constructor(position, angle=0) {
+        this.position = position;
+        this.oldPosition = position;
 
-//sim.objects.push(new VerletObject(new Vector(20, 200)));
-//sim.objects.push(new VerletObject(new Vector(300, 200)));
+        this.angle = angle;
+        this.oldAngle = angle;
 
-//for(let i=0; i<20; i++) {
-//    sim.objects.push(new VerletObject(new Vector(randRange(100, 400), randRange(100, 400)), 10));
-//}
+        this.mass = 1000;
+        this.angularMass = this.mass**2; // need better calculation
 
-//var numLinks = 10;
-//var r = 5;
-//for(let i=0; i<numLinks; i++) {
-//    sim.objects.push(new VerletObject(new Vector(250 + r*2*i, 250), r));
+        // this.scale = 2;
 
-//    if(i == 0) {
-//        sim.objects[sim.objects.length-1].kinematic = true;
-//    } else {
-//        sim.links.push(new VerletLink(
-//            sim.objects[sim.objects.length-2],
-//            sim.objects[sim.objects.length-1]
-//        ))
-//    }
-//}
+        this.polygon = [
+            // simple square
+            //[1, 1],
+            //[-1, 1],
+            //[-1, -1],
+            //[1, -1]
 
-//sim.objects.push(new VerletObject(new Vector(250 + r*2*numLinks, 250), 5, 10));
-//sim.links.push(new VerletLink(
-//    sim.objects[sim.objects.length-2],
-//    sim.objects[sim.objects.length-1]
-//));
+            // jedi starfighter
+            [52.83018867924528, -3.2349160732194234e-15],
+            [-13.207547169811319, 24.90566037735849],
+            [-24.528301886792455, 22.830188679245285],
+            [-28.49056603773585, 12.07547169811321],
+            [-51.320754716981135, 3.142489899698869e-15],
+            [-32.264150943396224, -12.264150943396226],
+            [-28.49056603773585, -12.641509433962263],
+            [-24.71698113207547, -22.830188679245285],
+            [-13.396226415094342, -25.09433962264151]
+        ];
 
+        // apply poly changes TEMPORARY
+        var shift = new Vector(5, 0);
+        for(let i=0; i<this.polygon.length; i++) {
+            this.polygon[i] = new Vector(...this.polygon[i]).add(new Vector(5, 0)).mul(2).arr();
+        }
+        //console.log(JSON.stringify(this.polygon));
 
-//for(let i=0; i<30; i++) {
-//    sim.update();
-//}
+        this.kinematic = false;
+        this.acceleration = new Vector(0, 0);
+    }
 
+    draw(ctx, color) {
+        drawPolygon(ctx, this.globalPolygon, color);
+    }
 
-function draw() {
-    fillCanvas(ctx, canvas, "#000000");
-    drawCircle(ctx, sim.constraintCenter.arr(), sim.constraintRadius, "#ffffff");
+    updatePosition(dt) {
+        var velocity = this.position.sub(this.oldPosition);
+        var angularVelocity = this.angle - this.oldAngle;
 
-    for(let i=0; i<sim.objects.length; i++) {
-        if(i == 0 && false) {
-            drawCircle(ctx, sim.objects[i].position.arr(), sim.objects[i].radius, "#00ff00");
+        this.oldPosition = this.position;
+        this.oldAngle = this.angle;
+
+        this.position = this.position.add(velocity).add(this.acceleration.mul(dt**2));
+        this.angle += angularVelocity;
+
+        this.acceleration = new Vector(0, 0);
+    }
+
+    applyInstantForce(v, forceCenter=undefined, local=false) {
+        if(this.kinematic) {
+            return;
+        }
+
+        if(forceCenter === undefined) {
+            if(local) {
+                forceCenter = new Vector(0, 0);
+            } else {
+                forceCenter = this.position;
+            }
+        }
+
+        if(local) {
+            var localV = v;
+            var globalV = this.toGlobalRotation(v);
+            var localForceCenter = forceCenter;
         } else {
-            drawCircle(ctx, sim.objects[i].position.arr(), sim.objects[i].radius, "#0000ff");
+            var localV = this.toLocalRotation(v);
+            var globalV = v;
+            var localForceCenter = this.toLocalPosition(forceCenter);
+        }
+
+        var torque = localForceCenter.rotate(Math.PI/2).dot(localV);
+
+        this.position = this.position.add(globalV.div(this.mass));
+        this.angle += torque / this.angularMass;
+    }
+
+    accelerate(acceleration) {
+        if(!this.kinematic) {
+            this.acceleration = this.acceleration.add(acceleration);
         }
     }
 
-    drawRectangle(ctx, [100, 100], [300, 300], undefined, "#ff0000");
+    toGlobalRotation(v) {
+        return v.rotate(this.angle);
+    }
+    toLocalRotation(v) {
+        return v.rotate(-this.angle);
+    }
+
+    //toGlobalScale(v) {
+    //    return v.mul(this.scale);
+    //}
+    //toLocalScale(v) {
+    //    return v.div(this.scale);
+    //}
+    
+    toGlobalPosition(v) {
+        //return this.toGlobalRotation(this.toGlobalScale(v)).add(this.position);
+        return this.toGlobalRotation(v).add(this.position);
+    }
+    toLocalPosition(v) {
+        return this.toLocalRotation(this.position.sub(v));
+    }
+
+    //toLocalForce(v, forceCenter) {
+    //    return [this.toLocalRotation(v), this.toLocalPosition(forceCenter)];
+    //}
+    //toGlobalForce(v, forceCenter) {
+    //    throw "not implemented";
+    //}
+
+    get globalPolygon() {
+        var polygon = [];
+        for(let i=0; i<this.polygon.length; i++) {
+            polygon.push(this.toGlobalPosition(new Vector(...this.polygon[i])).arr());
+        }
+        return polygon;
+    }
+}
+
+
+//var sim = new VerletSimulation();
+
+
+var bodies = [
+    new VerletRigidbody(new Vector(150, 100)),
+    new VerletRigidbody(new Vector(150, 300))
+];
+//body.accelerate(new Vector(5, 0));
+//body.oldAngle -= 0.05;
+
+var force = new Vector(100, 0);
+var forceCenter = new Vector(0, 25);
+//var forceLocal = true;
+
+
+function draw() {
+    //fillCanvas(ctx, canvas, BLACK);
+    //drawCircle(ctx, sim.constraintCenter.arr(), sim.constraintRadius, WHITE);
+
+    //for(let i=0; i<sim.objects.length; i++) {
+    //    sim.objects[i].draw(ctx, BLUE);
+    //}
+
+    //drawRectangle(ctx, [100, 100], [300, 300], undefined, RED);
+
+
+    bodies.forEach(b => b.draw(ctx, BLUE));
+
+    //if(forceLocal) {
+    //    drawLine(ctx,
+    //        bodies[0].position.arr(),
+    //        bodies[0].toGlobalPosition(forceCenter).arr(),
+    //    GREEN);
+    //    drawLine(ctx,
+    //        bodies[0].toGlobalPosition(forceCenter).arr(),
+    //        bodies[0].toGlobalPosition(forceCenter).add(bodies[0].toGlobalRotation(force)).arr(),
+    //    RED);
+    //} else {
+    //    drawLine(ctx,
+    //        bodies[0].position.arr(),
+    //        bodies[0].position.add(forceCenter).arr(),
+    //    GREEN);
+    //    drawLine(ctx,
+    //        bodies[0].position.add(forceCenter).arr(),
+    //        bodies[0].position.add(forceCenter).add(force).arr(),
+    //    RED);
+    //}
 }
 
 function update() {
-    //sim.constraintCenter = new Vector(randRange(250, 255), randRange(250, 255));
-    //sim.objects[0].accelerate(sim.gravity.neg);
-    //sim.objects[0].accelerate(new Vector(0, 10));
+    //sim.objects.push(new VerletObject(new Vector(randRange(100, 300), randRange(100, 300))));
 
-    sim.objects.push(new VerletObject(new Vector(randRange(100, 300), randRange(100, 300))));
+    //sim.update();
 
-    sim.update();
+
+    //bodies.forEach((b, i) => b.applyInstantForce(force, forceCenter, i))
+    for(let i=0; i<2; i++) {
+        bodies[i].applyInstantForce(force);
+    }
+
+    bodies.forEach(b => b.updatePosition(1));
 }
-
-
-//(function() {
-//    document.onmousemove = handleMouseMove;
-//    function handleMouseMove(event) {
-//        var eventDoc, doc, body;
-
-//        event = event || window.event; // IE-ism
-
-//        // If pageX/Y aren't available and clientX/Y are,
-//        // calculate pageX/Y - logic taken from jQuery.
-//        // (This is to support old IE)
-//        if (event.pageX == null && event.clientX != null) {
-//            eventDoc = (event.target && event.target.ownerDocument) || document;
-//            doc = eventDoc.documentElement;
-//            body = eventDoc.body;
-
-//            event.pageX = event.clientX +
-//              (doc && doc.scrollLeft || body && body.scrollLeft || 0) -
-//              (doc && doc.clientLeft || body && body.clientLeft || 0);
-//            event.pageY = event.clientY +
-//              (doc && doc.scrollTop  || body && body.scrollTop  || 0) -
-//              (doc && doc.clientTop  || body && body.clientTop  || 0 );
-//        }
-
-//        // Use event.pageX / event.pageY here
-//    }
-//})();
