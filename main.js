@@ -1,53 +1,6 @@
 "use strict"; // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Strict_mode/Transitioning_to_strict_mode
 
 
-class VerletConstraintCircle {
-    constructor(position, radius) {
-        this.position = position;
-        this.radius = radius;
-    }
-
-    apply(object) {
-        var toCenter = this.position.sub(object.position);
-        var distance = toCenter.mag;
-        var effectiveRadius = this.radius - object.radius;
-        
-        var overstep = distance - effectiveRadius;
-
-        if(overstep > 0) {
-            object.applyInstantForce(toCenter.norm.mul(overstep*object.mass));
-        }
-    }
-
-    draw(ctx, color) {
-        drawCircle(ctx, this.position.arr(), this.radius, undefined, color);
-    }
-}
-
-class VerletConstraintLine {
-    // constrains to the left side of the line
-
-    constructor(p1, p2) {
-        this.p1 = p1;
-        this.p2 = p2;
-    }
-
-    apply(object) {
-        // invert because rotation is flipped
-        var distance = -distanceToLine(this.p1, this.p2, object.position);
-        var separation = distance - object.radius;
-
-        if(separation < 0) {
-            var fix = this.p2.sub(this.p1).norm.perp.mul(separation);
-            object.applyInstantForce(fix.mul(object.mass));
-        }
-    }
-
-    draw(ctx, color) {
-        drawLine(ctx, this.p1.arr(), this.p2.arr(), color);
-    }
-}
-
 class VerletObject {
     constructor(position, radius=10, density=1) {
         this.position = position;
@@ -268,6 +221,55 @@ class VerletRigidbody {
     }
 }
 
+class VerletConstraintCircle {
+    constructor(position, radius) {
+        this.position = position;
+        this.radius = radius;
+    }
+
+    apply(object) {
+        var toCenter = this.position.sub(object.position);
+        var distance = toCenter.mag;
+        var effectiveRadius = this.radius - object.radius;
+        
+        var overstep = distance - effectiveRadius;
+
+        if(overstep > 0) {
+            object.applyInstantForce(toCenter.norm.mul(overstep*object.mass));
+        }
+    }
+
+    draw(ctx, color) {
+        drawCircle(ctx, this.position.arr(), this.radius, undefined, color);
+    }
+}
+
+class VerletConstraintLine {
+    // constrains to the left side of the line (right when y is flipped ._.)
+
+    constructor(p1, p2) {
+        this.p1 = p1;
+        this.p2 = p2;
+    }
+
+    apply(object) {
+        console.log(object instanceof Object);
+
+        // invert because rotation is flipped
+        var distance = -distanceToLine(this.p1, this.p2, object.position);
+        var separation = distance - object.radius;
+
+        if(separation < 0) {
+            var fix = this.p2.sub(this.p1).norm.perp.mul(separation);
+            object.applyInstantForce(fix.mul(object.mass));
+        }
+    }
+
+    draw(ctx, color) {
+        drawLine(ctx, this.p1.arr(), this.p2.arr(), color);
+    }
+}
+
 class VerletSimulation {
     constructor() {
         this.constraints = [];
@@ -282,6 +284,24 @@ class VerletSimulation {
 
         this.subSteps = 8;
         //this.linkSteps = 8;
+    }
+
+    draw(ctx) {
+        for(let i=0; i<sim.constraints.length; i++) {
+            //drawCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, WHITE, BLACK);
+            //drawCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, undefined, BLACK);
+            //fillOutsideCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, BLACK);
+    
+            sim.constraints[i].draw(ctx, BLACK);
+        }
+
+        for(let i=0; i<sim.objects.length; i++) {
+            sim.objects[i].draw(ctx, BLUE);
+        }
+
+        for(let i=0; i<sim.rigidbodies.length; i++) {
+            sim.rigidbodies[i].draw(ctx, GREEN);
+        }
     }
 
     update(dt=1) {
@@ -300,36 +320,30 @@ class VerletSimulation {
         for(let i=0; i<this.objects.length; i++) {
             this.objects[i].updatePosition(dt);
         }
+
+        for(let i=0; i<this.rigidbodies.length; i++) {
+            this.rigidbodies[i].updatePosition(dt);
+        }
     }
 
     applyGravity() {
         for(let i=0; i<this.objects.length; i++) {
             this.objects[i].accelerate(this.gravity);
         }
+
+        for(let i=0; i<this.rigidbodies.length; i++) {
+            this.rigidbodies[i].accelerate(this.gravity);
+        }
     }
 
     applyConstraints() {
-        //for(let i=0; i<this.objects.length; i++) {
-        //    //var displacement = this.objects[i].position.sub(this.constraintCenter);
-        //    //var displacement = this.constraintCenter.sub(this.objects[i].position);
-        //    //var distance = displacement.mag;
-        //    var toCenter = this.constraintCenter.sub(this.objects[i].position);
-        //    var distance = toCenter.mag;
-        //    var effectiveRadius = this.constraintRadius - this.objects[i].radius;
-            
-        //    var overstep = distance - effectiveRadius;
-
-        //    //if(distance > effectiveRadius) {
-        //    if(overstep > 0) {
-        //        //this.objects[i].position = this.constraintCenter.add(displacement.norm.mul(effectiveRadius));
-
-        //        this.objects[i].applyInstantForce(toCenter.norm.mul(overstep*this.objects[i].mass));
-        //    }
-        //}
-
         for(let i=0; i<this.constraints.length; i++) {
             for(let j=0; j<this.objects.length; j++) {
                 this.constraints[i].apply(this.objects[j]);
+            }
+
+            for(let j=0; j<this.rigidbodies.length; j++) {
+                this.constraints[i].apply(this.rigidbodies[j]);
             }
         }
     }
@@ -377,6 +391,8 @@ class VerletSimulation {
                     o2.applyInstantForce(force.neg);
                 }
             }
+
+            // add rigidbodies TODO
         }
     }
 }
@@ -384,63 +400,57 @@ class VerletSimulation {
 
 var sim = new VerletSimulation();
 
-//sim.constraints.push(new VerletConstraintCircle(new Vector(250, 250), 250));
+sim.constraints.push(new VerletConstraintCircle(new Vector(250, 250), 250));
 //sim.constraints.push(new VerletConstraintCircle(new Vector(350, 250), 250));
 
 //sim.constraints.push(new VerletConstraintCircle(new Vector(500, 500), 500));
-//sim.constraints.push(new VerletConstraintLine(new Vector(0, 500), new Vector(1000, 400)));
+//sim.constraints.push(new VerletConstraintLine(new Vector(0, 400), new Vector(1000, 400)));
 
-for(let i=0; i<3; i++) {
-    sim.constraints.push(new VerletConstraintCircle(
-        new Vector(250, 250).add(angleToVector(i * Math.PI*2/3, 50)), 100
-    ));
-}
+//for(let i=0; i<3; i++) {
+//    sim.constraints.push(new VerletConstraintCircle(
+//        new Vector(250, 250).add(angleToVector(i * Math.PI*2/3, 50)), 100
+//    ));
+//}
+
+//sim.constraints.push(new VerletConstraintLine(new Vector(1000, 0), new Vector(0, 500)));
 
 
-sim.objects.push(new VerletObject(new Vector(randRange(200, 300), randRange(200, 300))));
+//sim.objects.push(new VerletObject(new Vector(randRange(200, 300), randRange(200, 300))));
+//sim.objects.push(new VerletObject(new Vector(500, 300)));
 
 
-//var bodies = [
-//    new VerletRigidbody(new Vector(150, 100))
-//];
-
-//body.accelerate(new Vector(5, 0));
-//body.oldAngle -= 0.05;
-
-//var force = new Vector(100, 0);
-//var forceCenter = new Vector(0, 25);
-//var forceLocal = true;
+//sim.rigidbodies.push(new VerletRigidbody(new Vector(250, 250)));
 
 
 function draw() {
-    //fillCanvas(ctx, canvas, BLACK);
     fillCanvas(ctx, canvas, WHITE);
-
-    for(let i=0; i<sim.constraints.length; i++) {
-        //drawCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, WHITE, BLACK);
-        //drawCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, undefined, BLACK);
-        //fillOutsideCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, BLACK);
-
-        sim.constraints[i].draw(ctx, BLACK);
-    }
-
-    for(let i=0; i<sim.objects.length; i++) {
-        sim.objects[i].draw(ctx, BLUE);
-    }
-
-    //drawRectangle(ctx, [100, 100], [300, 300], undefined, RED);
+    sim.draw(ctx);
 
 
-    //bodies.forEach(b => b.draw(ctx, GREEN));
+    //for(let i=0; i<sim.constraints.length; i++) {
+    //    //drawCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, WHITE, BLACK);
+    //    //drawCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, undefined, BLACK);
+    //    //fillOutsideCircle(ctx, sim.constraints[i].position.arr(), sim.constraints[i].radius, BLACK);
+
+    //    sim.constraints[i].draw(ctx, BLACK);
+    //}
+
+    //for(let i=0; i<sim.objects.length; i++) {
+    //    sim.objects[i].draw(ctx, BLUE);
+    //}
+
+    ////drawRectangle(ctx, [100, 100], [300, 300], undefined, RED);
+
+    ////bodies.forEach(b => b.draw(ctx, GREEN));
 }
 
 function update() {
-    for(let i=0; i<3; i++) {
-        sim.constraints[i].position = new Vector(250, 250).add(angleToVector(i * Math.PI*2/3 + ticks/50, 50));
-    }
+    //for(let i=0; i<3; i++) {
+    //    sim.constraints[i].position = new Vector(200, 200).add(angleToVector(i * Math.PI*2/3 + ticks/50, 50));
+    //}
 
 
-    //sim.objects.push(new VerletObject(new Vector(randRange(100, 300), randRange(100, 300))));
+    sim.objects.push(new VerletObject(new Vector(randRange(100, 300), randRange(100, 300))));
 
     sim.update();
 
